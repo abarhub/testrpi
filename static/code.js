@@ -11,15 +11,24 @@ function envoyer() {
         let param = '';
         if (checkedValue === 'minuteur') {
             const timeControl = document.querySelector('input[type="time"]');
-            param = timeControl.value;
+            if (param.length > 0) {
+                param += '&';
+            }
+            param = 'time=' + timeControl.value;
+        } else if (checkedValue === 'horloge') {
+            const intensiteControl = document.querySelector('#horloge-intensite');
+            if (param.length > 0) {
+                param += '&';
+            }
+            param = 'intensite=' + intensiteControl.value;
         }
-        fetch("/api/action/" + checkedValue + ((param !== '') ? '?time=' + param : ''))
+        fetch("/api/action/" + checkedValue + ((param !== '') ? '?' + param : ''))
             .then(response => {
                 console.log('response:', response)
             })
             //.then(data => {
-                //console.log(data.count)
-                //console.log(data.products)
+            //console.log(data.count)
+            //console.log(data.products)
             //})
             .catch(error => console.error(error))
     }

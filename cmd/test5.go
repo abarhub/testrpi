@@ -23,9 +23,10 @@ const AFFICHE_MINUTEUR = "MINUTEUR"
 const INTENSITE = tm1637.Brightness4
 
 type Action struct {
-	action string
-	heure  int
-	minute int
+	action    string
+	heure     int
+	minute    int
+	intensite int
 }
 
 type Heure struct {
@@ -33,6 +34,7 @@ type Heure struct {
 	fin          bool
 	heure        int
 	minute       int
+	intensite    int
 }
 
 var messages = make(chan Heure)
@@ -83,7 +85,29 @@ func affiche() {
 		} else if msg.afficheHeure && msg.heure >= 0 && msg.heure <= 99 && msg.minute >= 0 && msg.minute <= 99 {
 			hours := msg.heure
 			minutes := msg.minute
-			if err := dev.SetBrightness(INTENSITE); err != nil {
+			intensite := msg.intensite
+			intensite2 := INTENSITE
+			if intensite > 0 {
+				if intensite == 1 {
+					intensite2 = tm1637.Brightness1
+				} else if intensite == 2 {
+					intensite2 = tm1637.Brightness2
+				} else if intensite == 3 {
+					intensite2 = tm1637.Brightness4
+				} else if intensite == 4 {
+					intensite2 = tm1637.Brightness10
+				} else if intensite == 5 {
+					intensite2 = tm1637.Brightness11
+				} else if intensite == 6 {
+					intensite2 = tm1637.Brightness12
+				} else if intensite == 7 {
+					intensite2 = tm1637.Brightness13
+				} else if intensite == 8 {
+					intensite2 = tm1637.Brightness14
+				}
+			}
+			log.Print("intensite:", intensite2, intensite)
+			if err := dev.SetBrightness(intensite2); err != nil {
 				log.Fatalf("failed to write to tm1637: %v", err)
 			}
 			if _, err := dev.Write(tm1637.Clock(hours, minutes, true)); err != nil {
@@ -94,16 +118,16 @@ func affiche() {
 
 }
 
-func horloge() {
-	action <- Action{AFFICHE_HEURE, 0, 0}
+func horloge(intensite int) {
+	action <- Action{action: AFFICHE_HEURE, intensite: intensite}
 }
 
 func minuteur(minute, secondes int) {
-	action <- Action{AFFICHE_MINUTEUR, minute, secondes}
+	action <- Action{action: AFFICHE_MINUTEUR, heure: minute, minute: secondes}
 }
 
 func arret() {
-	action <- Action{AFFICHE_RIEN, 0, 0}
+	action <- Action{action: AFFICHE_RIEN}
 }
 
 func boucleEvenement() {
@@ -131,7 +155,7 @@ func boucleEvenement() {
 
 		if actionSelectionnee.action == AFFICHE_HEURE {
 			now := time.Now()
-			messages <- Heure{afficheHeure: true, heure: now.Hour(), minute: now.Minute()}
+			messages <- Heure{afficheHeure: true, heure: now.Hour(), minute: now.Minute(), intensite: actionSelectionnee.intensite}
 		} else if actionSelectionnee.action == AFFICHE_MINUTEUR {
 			if nouveau {
 				minutes = actionSelectionnee.heure
@@ -168,8 +192,16 @@ func boucleEvenement() {
 func actionHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "horloge") {
 		log.Print("horloge")
-		//go func() { horloge() }()
-		horloge()
+		intensite := 0
+		if r.URL.Query().Has("intensite") {
+			intense, err := strconv.Atoi(r.URL.Query().Get("intensite"))
+			if err != nil {
+				log.Print("erreur", err)
+			} else {
+				intensite = intense
+			}
+		}
+		horloge(intensite)
 	} else if strings.HasSuffix(r.URL.Path, "minuteur") {
 		log.Print("minuteur")
 		if r.URL.Query().Has("time") {
@@ -211,7 +243,7 @@ func main() {
 
 	go func() { boucleEvenement() }()
 
-	horloge()
+	horloge(0)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
