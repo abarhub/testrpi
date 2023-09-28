@@ -110,12 +110,37 @@ func affiche() {
 			if err := dev.SetBrightness(intensite2); err != nil {
 				log.Fatalf("failed to write to tm1637: %v", err)
 			}
-			if _, err := dev.Write(tm1637.Clock(hours, minutes, true)); err != nil {
+			//var heure=tm1637.Clock(hours, minutes, true)
+			var heure = clock(hours, minutes, true)
+			if _, err := dev.Write(heure); err != nil {
 				log.Fatalf("failed to write to tm1637: %v", err)
 			}
 		}
 	}
 
+}
+
+// Hex digits from 0 to F.
+var digitToSegment = []byte{
+	0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71,
+}
+
+func clock(hour, minute int, showDots bool) []byte {
+	heure := hour / 10
+	heure2 := hour % 10
+	minute2 := minute / 10
+	minute3 := minute % 10
+	seg := make([]byte, 4)
+	if heure > 0 {
+		seg[0] = byte(digitToSegment[heure])
+	}
+	seg[1] = byte(digitToSegment[heure2])
+	seg[2] = byte(digitToSegment[minute2])
+	seg[3] = byte(digitToSegment[minute3])
+	if showDots {
+		seg[1] |= 0x80
+	}
+	return seg[:]
 }
 
 func horloge(intensite int) {
